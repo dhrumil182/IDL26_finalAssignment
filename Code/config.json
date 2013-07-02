@@ -18,5 +18,12 @@
             "ACTIVATION": "ReLU",
             "VAL_SPLIT": 0.1
         }
+    },
+    "BENCHMARK_CONFIG": {
+        "GRID": {
+            "DATA": ["cells", "chest", "lesions", "orgs"],
+            "MODEL": ["AlexNet", "VGG16", "ResNet18"]
+        },
+        "TAG": "full_grid"
     }
 }
