@@ -4,30 +4,60 @@ MAI/IDL SS26 - Final assignment.
 MG 6/6/2026
 """
 import json
+from pathlib import Path
+from pipeline import build_pipeline, run_training, save_results
+import matplotlib.pyplot as plt
 
-import torch
-import torch.nn as nn
-import torch.optim as optim
-from data import get_loaders
-import models
-from fit import Trainer
+def plot_loss_curve(history, save_path):
+    """Plots training and validation loss per epoch and saves it to
+    `save_path` (parent directories are created if needed)."""
+    save_path = Path(save_path)
+    save_path.parent.mkdir(parents=True, exist_ok=True)
 
-def main():   
+    epochs = range(1, len(history["train_loss"]) + 1)
+
+    plt.figure()
+    plt.plot(epochs, history["train_loss"], label="Train Loss")
+    plt.plot(epochs, history["val_loss"], label="Val Loss")
+    plt.xlabel("Epoch")
+    plt.ylabel("Loss")
+    plt.title("Training and Validation Loss")
+    plt.legend()
+    plt.tight_layout()
+    plt.savefig(save_path)
+    plt.close()
+
+    print(f"Loss curve saved to {save_path}")
+
+def main():
     with open("config.json", "r") as f:
-        config = json.load(f)
+        cfg = json.load(f)
+        run_config = cfg["BASE_CONFIG"]["RUN_CONFIG"]
+        experiment_config = cfg["BASE_CONFIG"]["EXPERIMENT_CONFIG"]
+        config = {
+            **run_config,
+            **experiment_config
+        }
 
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    device, train_loader, val_loader, test_loader, model, trainer = build_pipeline(config)
     print(f"Training executing on device: {device}")
 
-    train_loader, val_loader, _ = get_loaders(data=config["DATA"], data_path=config["DATA_PATH"], batch_size=config["BATCH_SIZE"])
+    train_profile = run_training(trainer, train_loader, val_loader, epochs=config["EPOCHS"], device=device)
+    history = train_profile.pop("history")
 
-    model_class = getattr(models, config["MODEL"])
-    model = model_class(in_channels=config["CHANNELS"], num_classes=config["NUM_CLASSES"], drop_rate=0.99, activation_str=None).to(device)
-    criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(model.parameters(), lr=config["LEARNING_RATE"])
+    print(f"\nTraining runtime: {train_profile['train_runtime_sec']:.2f}s")
+    if train_profile["train_peak_memory_mb"] is not None:
+        print(f"Training peak memory: {train_profile['train_peak_memory_mb']:.1f} MB")
 
-    trainer = Trainer(model, criterion, optimizer, device)
-    trainer.fit(train_loader, val_loader, epochs=config["EPOCHS"])
+    tag = config.get("TAG", "baseline")
+    save_results(config, tag, **train_profile)
+
+    plot_path = Path("results") / f"{config['DATA']}_{config['MODEL']}_{tag}_loss_curve.png"
+    plot_loss_curve(history, plot_path)
+
+    print(f"\nTraining finished. Run predict.py to evaluate on the test set "
+          f"(checkpoint: {config['MODEL_PATH']}).")
+
 
 if __name__ == "__main__":
     main()
