@@ -22,7 +22,7 @@ class Trainer:
             
             outputs = self.model(images)
             loss = self.criterion(outputs, labels)
-            
+            self.optimizer.zero_grad() #Fix: Clear gradients before backward pass
             loss.backward()
             self.optimizer.step()
             
