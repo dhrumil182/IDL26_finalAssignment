@@ -180,7 +180,6 @@ class ResNet18(nn.Module):
         self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.activation = activation(inplace=True)
-        print("Using activation function:", self.activation)
         
         self.stage1 = nn.Sequential(
             ResBlock(64, 64, activation(inplace=True), stride=1),
@@ -210,4 +209,5 @@ class ResNet18(nn.Module):
         out = self.stage4(out)
         out = self.avgpool(out)
         out = torch.flatten(out, 1)
-        self.classifier(out)
+        out = self.classifier(out)
+        return out
