@@ -6,15 +6,12 @@ MG 6/6/2026
 import torch
 import torch.nn as nn
 
-activation_str = "Identity"  # Placeholder for activation function, can be replaced with "ReLU" or others as needed.
-
-
 class VGGBlock(nn.Module):
     """Modular VGG block with configurable number of conv layers and channels.
 
     C configuration from Simonyan & Zisserman's VGG paper.
     """
-    def __init__(self, in_channels, out_channels, num_convs, padding=1):
+    def __init__(self, in_channels, out_channels, num_convs, activation_class=nn.ReLU, padding=1):
         super().__init__()
         layers = []
         current_in_channels = in_channels
@@ -24,7 +21,8 @@ class VGGBlock(nn.Module):
             conv_padding = 0 if kernel_size == 1 else 1
             layers.append(nn.Conv2d(current_in_channels, out_channels, kernel_size=kernel_size, padding=conv_padding))
             layers.append(nn.BatchNorm2d(out_channels))
-            layers.append(nn.ReLU(inplace=True))
+            # Fix: was hardcoded nn.ReLU, silently ignoring config["ACTIVATION"].
+            layers.append(activation_class(inplace=True))
             current_in_channels = out_channels # Fix: Update in_channels for next layer
             
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
@@ -68,34 +66,37 @@ class AlexNet(nn.Module):
         super().__init__()
 
         drop_rate = kwargs.get("drop_rate", 0.5)
-        
+        # Fix: was hardcoded nn.ReLU below, silently ignoring config["ACTIVATION"].
+        activation_str = kwargs.get("activation_str", "ReLU")
+        activation_class = getattr(nn, activation_str)
+
         self.features = nn.Sequential(
             nn.Conv2d(3, 48, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm2d(48),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             
             nn.Conv2d(48, 128, kernel_size=5, padding=2),
             nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Conv2d(256, 192, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
         
         self.classifier = nn.Sequential(
             nn.Dropout(p=drop_rate),
             nn.Linear(2048, 1024),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(1024, 1024),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Linear(1024, 11),
         )
 
@@ -111,21 +112,24 @@ class VGG16(nn.Module):
         super().__init__()
 
         drop_rate = kwargs.get("drop_rate", 0.5)
+        # Fix: was hardcoded nn.ReLU below, silently ignoring config["ACTIVATION"].
+        activation_str = kwargs.get("activation_str", "ReLU")
+        activation_class = getattr(nn, activation_str)
 
         self.features = nn.Sequential(
-            VGGBlock(in_channels, 64, num_convs=2),
-            VGGBlock(64, 128, num_convs=2),
-            VGGBlock(128, 256, num_convs=3),
-            VGGBlock(256, 512, num_convs=3),
-            VGGBlock(512, 512, num_convs=3)
+            VGGBlock(in_channels, 64, num_convs=2, activation_class=activation_class),
+            VGGBlock(64, 128, num_convs=2, activation_class=activation_class),
+            VGGBlock(128, 256, num_convs=3, activation_class=activation_class),
+            VGGBlock(256, 512, num_convs=3, activation_class=activation_class),
+            VGGBlock(512, 512, num_convs=3, activation_class=activation_class)
         )
         
         self.classifier = nn.Sequential(
             nn.Linear(2048, 1024),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(1024, 512),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(512, num_classes)
         )
@@ -144,6 +148,7 @@ class ResNet18(nn.Module):
     def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
 
+        activation_str = kwargs.get("activation_str", "ReLU")
         activation = getattr(nn, activation_str)
 
         self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
