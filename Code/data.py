@@ -12,9 +12,12 @@ def get_loaders(data, data_path, batch_size, val_split=0.1, seed=42):
     data_dict = torch.load(d_path, weights_only=True)
 
     total_samples = data_dict['train_images'].shape[0]
+    num_channels = data_dict['train_images'].shape[1]
+    input_size = data_dict['train_images'].shape[-1]  # assumes square images (H == W)
 
     train_labels = data_dict['train_labels'].squeeze(1)
     test_labels = data_dict['test_labels'].squeeze(1)
+    num_classes = int(torch.max(torch.cat([train_labels, test_labels])).item()) + 1
 
     val_size = int(total_samples * val_split)
     train_size = total_samples - val_size
@@ -33,4 +36,4 @@ def get_loaders(data, data_path, batch_size, val_split=0.1, seed=42):
     val_loader = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=False)
     test_loader = DataLoader(dataset=test_dataset, batch_size=batch_size, shuffle=False)
 
-    return train_loader, val_loader, test_loader
+    return train_loader, val_loader, test_loader, num_channels, num_classes, input_size
