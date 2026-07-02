@@ -66,6 +66,7 @@ class AlexNet(nn.Module):
         super().__init__()
 
         drop_rate = kwargs.get("drop_rate", 0.5)
+        input_size = kwargs.get("input_size", 64) # Fix: Hardcoded input nn.linear of self.classifier
         # Fix: was hardcoded nn.ReLU below, silently ignoring config["ACTIVATION"].
         activation_str = kwargs.get("activation_str", "ReLU")
         activation_class = getattr(nn, activation_str)
@@ -90,15 +91,26 @@ class AlexNet(nn.Module):
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
         
+        flatten_dim = self._get_flatten_dim(in_channels, input_size)
+
         self.classifier = nn.Sequential(
             nn.Dropout(p=drop_rate),
-            nn.Linear(2048, 1024),
+            nn.Linear(flatten_dim, 1024),
             activation_class(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(1024, 1024),
             activation_class(inplace=True),
             nn.Linear(1024, num_classes),
         )
+
+    def _get_flatten_dim(self, in_channels, input_size):
+        """Run a dummy tensor through self.features to infer the
+        flattened feature size, so the classifier head is correct
+        regardless of input resolution/channel count."""
+        with torch.no_grad():
+            dummy = torch.zeros(1, in_channels, input_size, input_size)
+            out = self.features(dummy)
+        return out.flatten(1).shape[1]
 
     def forward(self, x):
         x = self.features(x)
@@ -112,6 +124,7 @@ class VGG16(nn.Module):
         super().__init__()
 
         drop_rate = kwargs.get("drop_rate", 0.5)
+        input_size = kwargs.get("input_size", 64)
         # Fix: was hardcoded nn.ReLU below, silently ignoring config["ACTIVATION"].
         activation_str = kwargs.get("activation_str", "ReLU")
         activation_class = getattr(nn, activation_str)
@@ -123,9 +136,13 @@ class VGG16(nn.Module):
             VGGBlock(256, 512, num_convs=3, activation_class=activation_class),
             VGGBlock(512, 512, num_convs=3, activation_class=activation_class)
         )
-        
+
+        # Fix: was a hardcoded nn.Linear(2048, ...), only correct for exactly
+        # 64x64 inputs. Compute it dynamically instead, same as AlexNet.
+        flatten_dim = self._get_flatten_dim(in_channels, input_size)
+
         self.classifier = nn.Sequential(
-            nn.Linear(2048, 1024),
+            nn.Linear(flatten_dim, 1024),
             activation_class(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(1024, 512),
@@ -133,6 +150,15 @@ class VGG16(nn.Module):
             nn.Dropout(p=drop_rate),
             nn.Linear(512, num_classes)
         )
+
+    def _get_flatten_dim(self, in_channels, input_size):
+        """Run a dummy tensor through self.features to infer the
+        flattened feature size, so the classifier head is correct
+        regardless of input resolution/channel count."""
+        with torch.no_grad():
+            dummy = torch.zeros(1, in_channels, input_size, input_size)
+            out = self.features(dummy)
+        return out.flatten(1).shape[1]
 
     def forward(self, x):
         x = self.features(x)
