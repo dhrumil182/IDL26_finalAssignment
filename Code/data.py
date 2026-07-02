@@ -13,7 +13,8 @@ def get_loaders(data, data_path, batch_size, val_split=0.1, seed=42):
 
     total_samples = data_dict['train_images'].shape[0]
 
-    train_labels = data_dict['train_labels']
+    train_labels = data_dict['train_labels'].squeeze(1)
+    test_labels = data_dict['test_labels'].squeeze(1)
 
     val_size = int(total_samples * val_split)
     train_size = total_samples - val_size
@@ -26,7 +27,7 @@ def get_loaders(data, data_path, batch_size, val_split=0.1, seed=42):
         generator=torch.Generator().manual_seed(seed)
     )
 
-    test_dataset = TensorDataset(data_dict['test_images'], data_dict['test_labels'])
+    test_dataset = TensorDataset(data_dict['test_images'], test_labels)
 
     train_loader = DataLoader(dataset=train_dataset, batch_size=batch_size, shuffle=True)
     val_loader = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=False)
