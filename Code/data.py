@@ -8,8 +8,8 @@ from pathlib import Path
 from torch.utils.data import TensorDataset, DataLoader
 
 def get_loaders(data, data_path, batch_size, val_split=0.1):
-    d_path = Path(data_path) / f"{data}_data.pt"
-    data_dict = torch.load(d_path)
+    d_path = Path(data_path) / f"{data}.pt" # Fix: Use data instead of {data}_data.pt
+    data_dict = torch.load(d_path, weights_only=True)
 
     total_samples = data_dict['train_images'].shape[0]
     val_size = int(total_samples * val_split)
