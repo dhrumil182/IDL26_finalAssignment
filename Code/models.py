@@ -6,24 +6,24 @@ MG 6/6/2026
 import torch
 import torch.nn as nn
 
-activation_str = "Identity"  # Placeholder for activation function, can be replaced with "ReLU" or others as needed.
-
-
 class VGGBlock(nn.Module):
     """Modular VGG block with configurable number of conv layers and channels.
 
     C configuration from Simonyan & Zisserman's VGG paper.
     """
-    def __init__(self, in_channels, out_channels, num_convs, padding=1):
+    def __init__(self, in_channels, out_channels, num_convs, activation_class=nn.ReLU, padding=1):
         super().__init__()
         layers = []
         current_in_channels = in_channels
         for i in range(num_convs):
             is_config_c_tail = (num_convs == 3 and i == 2)
             kernel_size = 1 if is_config_c_tail else 3
-            layers.append(nn.Conv2d(current_in_channels, out_channels, kernel_size=kernel_size, padding=padding))
+            conv_padding = 0 if kernel_size == 1 else 1
+            layers.append(nn.Conv2d(current_in_channels, out_channels, kernel_size=kernel_size, padding=conv_padding))
             layers.append(nn.BatchNorm2d(out_channels))
-            layers.append(nn.ReLU(inplace=True))
+            # Fix: was hardcoded nn.ReLU, silently ignoring config["ACTIVATION"].
+            layers.append(activation_class(inplace=True))
+            current_in_channels = out_channels # Fix: Update in_channels for next layer
             
         layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
         self.block = nn.Sequential(*layers)
@@ -62,40 +62,55 @@ class ResBlock(nn.Module):
 
 class AlexNet(nn.Module):
     """AlexNet (Krizhevsky et al., 2012) adapted for smaller inputs."""
-    def __init__(self, **kwargs):
+    def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
 
         drop_rate = kwargs.get("drop_rate", 0.5)
-        
+        input_size = kwargs.get("input_size", 64) # Fix: Hardcoded input nn.linear of self.classifier
+        # Fix: was hardcoded nn.ReLU below, silently ignoring config["ACTIVATION"].
+        activation_str = kwargs.get("activation_str", "ReLU")
+        activation_class = getattr(nn, activation_str)
+
         self.features = nn.Sequential(
-            nn.Conv2d(3, 48, kernel_size=7, stride=2, padding=3),
+            nn.Conv2d(in_channels, 48, kernel_size=7, stride=2, padding=3),
             nn.BatchNorm2d(48),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             
             nn.Conv2d(48, 128, kernel_size=5, padding=2),
             nn.BatchNorm2d(128),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
             
             nn.Conv2d(128, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Conv2d(256, 256, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Conv2d(256, 192, kernel_size=3, padding=1),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.MaxPool2d(kernel_size=3, stride=2, padding=1),
         )
         
+        flatten_dim = self._get_flatten_dim(in_channels, input_size)
+
         self.classifier = nn.Sequential(
             nn.Dropout(p=drop_rate),
-            nn.Linear(2048, 1024),
-            nn.ReLU(inplace=True),
+            nn.Linear(flatten_dim, 1024),
+            activation_class(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(1024, 1024),
-            nn.ReLU(inplace=True),
-            nn.Linear(1024, 11),
+            activation_class(inplace=True),
+            nn.Linear(1024, num_classes),
         )
+
+    def _get_flatten_dim(self, in_channels, input_size):
+        """Run a dummy tensor through self.features to infer the
+        flattened feature size, so the classifier head is correct
+        regardless of input resolution/channel count."""
+        with torch.no_grad():
+            dummy = torch.zeros(1, in_channels, input_size, input_size)
+            out = self.features(dummy)
+        return out.flatten(1).shape[1]
 
     def forward(self, x):
         x = self.features(x)
@@ -109,24 +124,41 @@ class VGG16(nn.Module):
         super().__init__()
 
         drop_rate = kwargs.get("drop_rate", 0.5)
+        input_size = kwargs.get("input_size", 64)
+        # Fix: was hardcoded nn.ReLU below, silently ignoring config["ACTIVATION"].
+        activation_str = kwargs.get("activation_str", "ReLU")
+        activation_class = getattr(nn, activation_str)
 
         self.features = nn.Sequential(
-            VGGBlock(in_channels, 64, num_convs=2),
-            VGGBlock(64, 128, num_convs=2),
-            VGGBlock(128, 256, num_convs=3),
-            VGGBlock(256, 512, num_convs=3),
-            VGGBlock(512, 512, num_convs=3)
+            VGGBlock(in_channels, 64, num_convs=2, activation_class=activation_class),
+            VGGBlock(64, 128, num_convs=2, activation_class=activation_class),
+            VGGBlock(128, 256, num_convs=3, activation_class=activation_class),
+            VGGBlock(256, 512, num_convs=3, activation_class=activation_class),
+            VGGBlock(512, 512, num_convs=3, activation_class=activation_class)
         )
-        
+
+        # Fix: was a hardcoded nn.Linear(2048, ...), only correct for exactly
+        # 64x64 inputs. Compute it dynamically instead, same as AlexNet.
+        flatten_dim = self._get_flatten_dim(in_channels, input_size)
+
         self.classifier = nn.Sequential(
-            nn.Linear(2048, 1024),
-            nn.ReLU(inplace=True),
+            nn.Linear(flatten_dim, 1024),
+            activation_class(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(1024, 512),
-            nn.ReLU(inplace=True),
+            activation_class(inplace=True),
             nn.Dropout(p=drop_rate),
             nn.Linear(512, num_classes)
         )
+
+    def _get_flatten_dim(self, in_channels, input_size):
+        """Run a dummy tensor through self.features to infer the
+        flattened feature size, so the classifier head is correct
+        regardless of input resolution/channel count."""
+        with torch.no_grad():
+            dummy = torch.zeros(1, in_channels, input_size, input_size)
+            out = self.features(dummy)
+        return out.flatten(1).shape[1]
 
     def forward(self, x):
         x = self.features(x)
@@ -142,12 +174,12 @@ class ResNet18(nn.Module):
     def __init__(self, in_channels, num_classes, **kwargs):
         super().__init__()
 
+        activation_str = kwargs.get("activation_str", "ReLU")
         activation = getattr(nn, activation_str)
 
         self.conv1 = nn.Conv2d(in_channels, 64, kernel_size=3, stride=1, padding=1, bias=False)
         self.bn1 = nn.BatchNorm2d(64)
         self.activation = activation(inplace=True)
-        print("Using activation function:", self.activation)
         
         self.stage1 = nn.Sequential(
             ResBlock(64, 64, activation(inplace=True), stride=1),
@@ -177,4 +209,5 @@ class ResNet18(nn.Module):
         out = self.stage4(out)
         out = self.avgpool(out)
         out = torch.flatten(out, 1)
-        self.classifier(out)
+        out = self.classifier(out)
+        return out

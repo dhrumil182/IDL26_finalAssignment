@@ -1,0 +1,29 @@
+{
+    "BASE_CONFIG": {
+        "RUN_CONFIG": {
+            "DATA_PATH": "../data",
+            "SAVE_MODEL": true,
+            "MODEL_PATH": "checkpoints/Temp.pt",
+            "SEED": 42
+        },
+        "EXPERIMENT_CONFIG": {
+            "DATA": "cells",
+            "MODEL": "ResNet18",
+            "BATCH_SIZE": 128,
+            "LEARNING_RATE": 0.001,
+            "EPOCHS": 100,
+            "OPTIMIZER": "Adam",
+            "LOSS": "CrossEntropyLoss",
+            "DROPOUT": 0.5,
+            "ACTIVATION": "ReLU",
+            "VAL_SPLIT": 0.1
+        }
+    },
+    "BENCHMARK_CONFIG": {
+        "GRID": {
+            "DATA": ["cells", "chest", "lesions", "orgs"],
+            "MODEL": ["AlexNet", "VGG16", "ResNet18"]
+        },
+        "TAG": "full_grid"
+    }
+}
