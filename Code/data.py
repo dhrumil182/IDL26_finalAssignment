@@ -5,9 +5,32 @@ MG 6/6/2026
 """
 import torch
 from pathlib import Path
-from torch.utils.data import TensorDataset, DataLoader, random_split
+from torch.utils.data import TensorDataset, DataLoader, random_split, Dataset
+from torchvision import transforms
 
-def get_loaders(data, data_path, batch_size, val_split=0.1, seed=42):
+TRAIN_AUGMENTATION = transforms.Compose([
+    transforms.RandomHorizontalFlip(),
+    transforms.RandomRotation(10),
+])
+
+
+class AugmentedSubset(Dataset):
+    """Applies a transform to a Subset's images at fetch time, without
+    touching the underlying (shared) train/val tensors."""
+
+    def __init__(self, subset, transform):
+        self.subset = subset
+        self.transform = transform
+
+    def __len__(self):
+        return len(self.subset)
+
+    def __getitem__(self, idx):
+        image, label = self.subset[idx]
+        return self.transform(image), label
+
+
+def get_loaders(data, data_path, batch_size, val_split=0.1, seed=42, augment=False):
     d_path = Path(data_path) / f"{data}.pt" # Fix: Use data instead of {data}_data.pt
     data_dict = torch.load(d_path, weights_only=True)
 
@@ -29,6 +52,9 @@ def get_loaders(data, data_path, batch_size, val_split=0.1, seed=42):
         [train_size, val_size],
         generator=torch.Generator().manual_seed(seed)
     )
+
+    if augment:
+        train_dataset = AugmentedSubset(train_dataset, TRAIN_AUGMENTATION)
 
     test_dataset = TensorDataset(data_dict['test_images'], test_labels)
 

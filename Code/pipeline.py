@@ -108,6 +108,7 @@ def build_pipeline(config):
         batch_size=config["BATCH_SIZE"],
         val_split=config["VAL_SPLIT"],
         seed=config["SEED"],
+        augment=config.get("AUGMENT", False)
     )
 
     model_class = getattr(models, config["MODEL"])
