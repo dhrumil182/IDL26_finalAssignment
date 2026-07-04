@@ -1,27 +1,93 @@
 # MAI - IDL 2026 — Final Project Assignment
 
-Welcome to the official repository template for the **Introduction to Deep Learning (IDL) 2026 Final Assignment**.
+**Author:** <Rafsan Bari Shafin> — Enrollment: <K73548>,
+<Dhrumil Desai> — Enrollment: <K73388>
 
-### Overview
+## Overview
 
-This repository contains the volatile, recovered remnants of a broken machine learning pipeline. Your mission is to audit the codebase, stabilize the system, optimize its computational footprint, and successfully deploy models across all target datasets.
+This repository is a post-incident reconstruction of BioHealth Diagnostics' clinical triage pipeline (Operation Cyber-Histology). So far it trains and evaluates three CNN architectures (`AlexNet`, `VGG16`, `ResNet18`) across four histology/imaging datasets (`cells`, `chest`, `lesions`, `orgs`).
 
-* **Code:** All core source files can be found inside the `Code/` directory.
-* **Instructions:** Background story and tasks are detailed in **`assignment_final.pdf`**.
-* **Data:** Available for download here: https://cloud.fiw.fhws.de/s/LpYa2dCW85kwdNn
+See `AUDIT_LOG.md` for the itemized list of bugs found and fixed in the recovered codebase.
 
----
+## Repository layout
 
-### Submission Guidelines
+```
+Code/
+  data.py        - dataset loading and train/val/test split
+  models.py      - AlexNet, VGG16, ResNet18
+  fit.py         - Trainer: training loop, evaluation, checkpointing
+  pipeline.py    - shared setup (data/model/trainer) and training/inference profiling
+  train.py       - single-run training entrypoint (reads config.json)
+  predict.py     - standalone test-set evaluation from a saved checkpoint
+  benchmark.py   - grid runner: sweeps BENCHMARK_CONFIG.GRID and writes a results CSV
+  config.json    - all experiment/runtime/benchmark configuration
+  checkpoints/   - saved model weights (created at runtime)
+  results/       - per-run metrics, loss curves, benchmark CSVs (created at runtime)
+data/            - dataset tensors (cells.pt, chest.pt, lesions.pt, orgs.pt)
+AUDIT_LOG.md     - incident audit log (bug -> root cause -> fix -> commit)
+requirements.txt - Python dependencies
+```
 
-* **Platform:** Submit your final deliverables via the official **e-learning platform**.
-* **Format:** Your submission must consist of a **direct link** to your created repository.
-* **Branch:** Ensure all your final, production-ready code, your `AUDIT_LOG.md`, and your `REPORT.md` are completely merged into the **`main`** branch before the cutoff.
-* **Deadline:** 09.07.2026, 23:59 (German Time). *Late submissions will not be processed.*
+## Prerequisites
 
----
+- Python 3.10+
+- The dataset files from the emergency backup, extracted into `data/` at the repository root (sibling of `Code/`)
 
-### Repository README
+Install dependencies:
 
-* **Professional Documentation:** Remember to update this `README` with a professional documentation of your repo.
-* **Author(s):** Indicate your name(s) and enrollment number(s) clearly in the top of the readme.
+```bash
+pip install -r requirements.txt
+```
+
+If you need a specific CUDA build of PyTorch, install `torch`/`torchvision` from the matching wheel index instead of the default PyPI build, e.g.:
+
+```bash
+pip install torch torchvision --index-url https://download.pytorch.org/whl/cu128
+```
+
+## Configuration
+
+Everything is driven by `Code/config.json`:
+
+- `BASE_CONFIG.RUN_CONFIG` - environment-level settings: data path, checkpoint path, whether to save models, random seed.
+- `BASE_CONFIG.EXPERIMENT_CONFIG` - a single experiment's hyperparameters: dataset, model, batch size, learning rate, epochs, optimizer, loss, dropout, activation, validation split.
+- `BENCHMARK_CONFIG.GRID` - one or more config keys mapped to lists of values; `benchmark.py` runs the cartesian product of all of them. `BENCHMARK_CONFIG.TAG` names the run (used in checkpoint/result filenames).
+
+## Usage
+
+All commands are run from the `Code/` directory.
+
+Train a single model/dataset combination (uses `BASE_CONFIG` from `config.json`):
+
+```bash
+python train.py
+```
+
+Evaluate a saved checkpoint on the test set without retraining:
+
+```bash
+python predict.py
+```
+
+Run every combination in `BENCHMARK_CONFIG.GRID` (writes `results/{TAG}_results.csv` plus per-run loss curves):
+
+```bash
+python benchmark.py
+```
+
+To switch which sweep runs, edit `BENCHMARK_CONFIG` in `config.json`.
+
+## Datasets and models
+
+| Dataset | Role |
+|---------|------|
+| `cells` | Section 1 core dataset |
+| `chest` | Section 1 core dataset |
+| `lesions` | Section 1 core dataset |
+| `orgs` | Section 1 core dataset |
+
+| Model | Role |
+|-------|------|
+| `AlexNet` | Section 1 baseline |
+| `VGG16` | Section 1 baseline |
+| `ResNet18` | Section 1 baseline |
