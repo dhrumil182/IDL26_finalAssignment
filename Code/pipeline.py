@@ -17,6 +17,76 @@ import models
 from fit import Trainer
 
 
+def load_feature_weights(model, checkpoint_path, device):
+    """
+    Load pretrained feature weights while leaving the classifier
+    randomly initialized.
+
+    This enables transfer learning even when the source and target
+    datasets have different numbers of classes.
+    """
+
+    print(f"Loading pretrained weights from: {checkpoint_path}")
+
+    checkpoint = torch.load(
+        checkpoint_path,
+        map_location=device,
+    )
+
+    model_dict = model.state_dict()
+
+    pretrained_dict = {
+        k: v
+        for k, v in checkpoint.items()
+        if (
+            k in model_dict
+            and model_dict[k].shape == v.shape
+        )
+    }
+
+    model_dict.update(pretrained_dict)
+
+    model.load_state_dict(model_dict)
+
+    print(f"Loaded {len(pretrained_dict)} pretrained tensors.")
+    missing = len(model_dict) - len(pretrained_dict)
+    print(f"Skipped {missing} tensors.")
+
+    return model
+
+def freeze_feature_extractor(model):
+    """
+    Freeze the feature extractor while leaving the classifier trainable.
+    """
+
+    if hasattr(model, "features"):
+        # AlexNet / VGG / GreenVGG
+        for param in model.features.parameters():
+            param.requires_grad = False
+
+    else:
+        # ResNet18
+        modules = [
+            "conv1",
+            "bn1",
+            "stage1",
+            "stage2",
+            "stage3",
+            "stage4",
+        ]
+
+        for name in modules:
+
+            if hasattr(model, name):
+
+                module = getattr(model, name)
+
+                for param in module.parameters():
+                    param.requires_grad = False
+
+    return model
+
+
 def build_pipeline(config):
     """Shared setup: seeds, data loaders, model, trainer
     """
@@ -49,12 +119,40 @@ def build_pipeline(config):
         input_size=input_size
     ).to(device)
 
+    # Transfer Learning
+    if config.get("TRANSFER_LEARNING", False):
+
+        checkpoint_path = config["PRETRAINED_MODEL_PATH"]
+
+        if not checkpoint_path:
+            raise ValueError(
+                "TRANSFER_LEARNING=True but PRETRAINED_MODEL_PATH is empty."
+            )
+
+        print(f"Transfer learning enabled.")
+        print(f"Loading checkpoint: {checkpoint_path}")
+
+        model = load_feature_weights(
+            model,
+            checkpoint_path,
+            device,
+        )
+
+        freeze_feature_extractor(model)
+
+        print("Feature extractor frozen.")
+
     criterion_class = getattr(nn, config["LOSS"])
     criterion = criterion_class()
     optimizer_class = getattr(optim, config["OPTIMIZER"])
 
-    optimizer = optimizer_class(
+    trainable_parameters = filter(
+        lambda p: p.requires_grad,
         model.parameters(),
+    )
+
+    optimizer = optimizer_class(
+        trainable_parameters,
         lr=config["LEARNING_RATE"]
     )
     
