@@ -22,8 +22,8 @@
     "BENCHMARK_CONFIG": {
         "GRID": {
             "DATA": ["cells", "chest", "lesions", "orgs"],
-            "MODEL": ["AlexNet", "VGG16", "ResNet18"]
+            "MODEL": ["VGG16", "GreenVGG16"]
         },
-        "TAG": "full_grid"
+        "TAG": "green_vgg_comparison"
     }
 }
