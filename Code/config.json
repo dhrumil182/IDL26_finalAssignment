@@ -16,14 +16,19 @@
             "LOSS": "CrossEntropyLoss",
             "DROPOUT": 0.5,
             "ACTIVATION": "ReLU",
-            "VAL_SPLIT": 0.1
+            "VAL_SPLIT": 0.1,
+            "TRANSFER_LEARNING": false,
+            "PRETRAINED_MODEL_PATH": "checkpoints/full_grid_orgs_ResNet18.pt",
+            "AUGMENT": false
         }
     },
     "BENCHMARK_CONFIG": {
         "GRID": {
-            "DATA": ["cells", "chest", "lesions", "orgs"],
-            "MODEL": ["VGG16", "GreenVGG16"]
+            "DATA": ["organs"],
+            "MODEL": ["ResNet18"],
+            "TRANSFER_LEARNING": [true, false],
+            "AUGMENT": [true, false]
         },
-        "TAG": "green_vgg_comparison"
+        "TAG": "organs_scarcity_ablation"
     }
 }
