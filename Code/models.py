@@ -211,3 +211,102 @@ class ResNet18(nn.Module):
         out = torch.flatten(out, 1)
         out = self.classifier(out)
         return out
+
+class GreenVGG16(nn.Module):
+    """
+    GreenVGG16
+
+    Lightweight VGG-style architecture designed for the Green Initiative.
+
+    Compared to VGG16:
+        - Reduced convolution channels
+        - Smaller classifier
+        - Lower parameter count
+        - Lower memory footprint
+        - Faster inference/training
+    """
+
+    def __init__(self, in_channels, num_classes, **kwargs):
+        super().__init__()
+
+        drop_rate = kwargs.get("drop_rate", 0.5)
+        input_size = kwargs.get("input_size", 64)
+
+        activation_str = kwargs.get("activation_str", "ReLU")
+        activation_class = getattr(nn, activation_str)
+
+        # ---------------------------------------------------------
+        # Feature extractor (compressed VGG16)
+        # ---------------------------------------------------------
+
+        self.features = nn.Sequential(
+
+            VGGBlock(in_channels, 32, num_convs=2,
+                     activation_class=activation_class),
+
+            VGGBlock(32, 64, num_convs=2,
+                     activation_class=activation_class),
+
+            VGGBlock(64, 128, num_convs=3,
+                     activation_class=activation_class),
+
+            VGGBlock(128, 256, num_convs=3,
+                     activation_class=activation_class),
+
+            VGGBlock(256, 256, num_convs=3,
+                     activation_class=activation_class),
+        )
+
+        flatten_dim = self._get_flatten_dim(
+            in_channels,
+            input_size
+        )
+
+        # ---------------------------------------------------------
+        # Lightweight classifier
+        # ---------------------------------------------------------
+
+        self.classifier = nn.Sequential(
+
+            nn.Linear(flatten_dim, 512),
+
+            activation_class(inplace=True),
+
+            nn.Dropout(drop_rate),
+
+            nn.Linear(512, 256),
+
+            activation_class(inplace=True),
+
+            nn.Dropout(drop_rate),
+
+            nn.Linear(256, num_classes)
+        )
+
+    def _get_flatten_dim(self, in_channels, input_size):
+        """
+        Dynamically determine the flattened feature dimension.
+        """
+
+        with torch.no_grad():
+
+            dummy = torch.zeros(
+                1,
+                in_channels,
+                input_size,
+                input_size,
+            )
+
+            out = self.features(dummy)
+
+        return out.flatten(1).shape[1]
+
+    def forward(self, x):
+
+        x = self.features(x)
+
+        x = torch.flatten(x, 1)
+
+        x = self.classifier(x)
+
+        return x
