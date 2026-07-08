@@ -9,8 +9,8 @@ from torch.utils.data import TensorDataset, DataLoader, random_split, Dataset
 from torchvision import transforms
 
 TRAIN_AUGMENTATION = transforms.Compose([
-    transforms.RandomHorizontalFlip(),
-    transforms.RandomRotation(10),
+    transforms.ColorJitter(brightness=0.2, contrast=0.2),
+    transforms.RandomAffine(degrees=0, translate=(0.05, 0.05), scale=(0.95, 1.05)),
 ])
 
 

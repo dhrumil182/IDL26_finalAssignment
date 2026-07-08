@@ -56,13 +56,18 @@ def load_feature_weights(model, checkpoint_path, device):
 
 def freeze_feature_extractor(model):
     """
-    Freeze the feature extractor while leaving the classifier trainable.
+    Freeze the feature extractor while leaving the classifier - and the
+    deepest backbone block - trainable. Leaving the last block unfrozen
+    lets the most task-specific features fine-tune to the target domain,
+    without risking overfitting the whole backbone on a small dataset.
     """
 
     if hasattr(model, "features"):
         # AlexNet / VGG / GreenVGG
-        for param in model.features.parameters():
-            param.requires_grad = False
+        blocks = list(model.features.children())
+        for block in blocks[:-1]:
+            for param in block.parameters():
+                param.requires_grad = False
 
     else:
         # ResNet18
@@ -72,7 +77,6 @@ def freeze_feature_extractor(model):
             "stage1",
             "stage2",
             "stage3",
-            "stage4",
         ]
 
         for name in modules:
@@ -141,21 +145,40 @@ def build_pipeline(config):
 
         freeze_feature_extractor(model)
 
-        print("Feature extractor frozen.")
+        print("Feature extractor frozen (last stage left trainable for fine-tuning).")
 
     criterion_class = getattr(nn, config["LOSS"])
     criterion = criterion_class()
     optimizer_class = getattr(optim, config["OPTIMIZER"])
 
-    trainable_parameters = filter(
-        lambda p: p.requires_grad,
-        model.parameters(),
-    )
+    if config.get("TRANSFER_LEARNING", False):
+        backbone_lr_multiplier = config.get("BACKBONE_LR_MULTIPLIER", 0.1)
+        head_params = list(model.classifier.parameters())
+        head_param_ids = {id(p) for p in head_params}
+        backbone_params = [
+            p for p in model.parameters()
+            if p.requires_grad and id(p) not in head_param_ids
+        ]
 
-    optimizer = optimizer_class(
-        trainable_parameters,
-        lr=config["LEARNING_RATE"]
-    )
+        weight_decay = config.get("WEIGHT_DECAY", 1e-4)
+
+        optimizer = optimizer_class(
+            [
+                {"params": head_params, "lr": config["LEARNING_RATE"]},
+                {"params": backbone_params, "lr": config["LEARNING_RATE"] * backbone_lr_multiplier},
+            ],
+            weight_decay=weight_decay,
+        )
+    else:
+        trainable_parameters = filter(
+            lambda p: p.requires_grad,
+            model.parameters(),
+        )
+
+        optimizer = optimizer_class(
+            trainable_parameters,
+            lr=config["LEARNING_RATE"]
+        )
     
     trainer = Trainer(model, criterion, optimizer, device, save_model=config["SAVE_MODEL"], model_path=config["MODEL_PATH"])
 
