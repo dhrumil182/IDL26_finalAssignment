@@ -7,11 +7,11 @@
             "SEED": 42
         },
         "EXPERIMENT_CONFIG": {
-            "DATA": "cells",
+            "DATA": "organs",
             "MODEL": "ResNet18",
-            "BATCH_SIZE": 128,
+            "BATCH_SIZE": 8,
             "LEARNING_RATE": 0.001,
-            "EPOCHS": 100,
+            "EPOCHS": 20,
             "OPTIMIZER": "Adam",
             "LOSS": "CrossEntropyLoss",
             "DROPOUT": 0.5,
@@ -25,7 +25,7 @@
     "BENCHMARK_CONFIG": {
         "GRID": {
             "DATA": ["organs"],
-            "MODEL": ["ResNet18"],
+            "MODEL": ["ResNet18", "AlexNet", "VGG16"],
             "TRANSFER_LEARNING": [true, false],
             "AUGMENT": [true, false]
         },
