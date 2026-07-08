@@ -1,11 +1,11 @@
 # MAI - IDL 2026 — Final Project Assignment
 
-**Author:** <Rafsan Bari Shafin> — Enrollment: <K73548>,
-<Dhrumil Desai> — Enrollment: <K73388>
+**Author:** Rafsan Bari Shafin — Enrollment: K73548,
+Dhrumil Desai — Enrollment: K73388
 
 ## Overview
 
-This repository is a post-incident reconstruction of BioHealth Diagnostics' clinical triage pipeline (Operation Cyber-Histology). So far it trains and evaluates three CNN architectures (`AlexNet`, `VGG16`, `ResNet18`) across four histology/imaging datasets (`cells`, `chest`, `lesions`, `orgs`).
+This repository is a post-incident reconstruction of BioHealth Diagnostics' clinical triage pipeline (Operation Cyber-Histology).
 
 See `AUDIT_LOG.md` for the itemized list of bugs found and fixed in the recovered codebase.
 
@@ -23,15 +23,15 @@ Code/
   config.json    - all experiment/runtime/benchmark configuration
   checkpoints/   - saved model weights (created at runtime)
   results/       - per-run metrics, loss curves, benchmark CSVs (created at runtime)
-data/            - dataset tensors (cells.pt, chest.pt, lesions.pt, orgs.pt)
-AUDIT_LOG.md     - incident audit log (bug -> root cause -> fix -> commit)
+data/            - dataset tensors (cells.pt, chest.pt, lesions.pt, orgs.pt and organs.pt)
+AUDIT_LOG.md     - incident audit log 
 requirements.txt - Python dependencies
 ```
 
 ## Prerequisites
 
 - Python 3.10+
-- The dataset files from the emergency backup, extracted into `data/` at the repository root (sibling of `Code/`)
+- Data: https://cloud.fiw.fhws.de/s/LpYa2dCW85kwdNn?opendetails=
 
 Install dependencies:
 
@@ -76,18 +76,3 @@ python benchmark.py
 ```
 
 To switch which sweep runs, edit `BENCHMARK_CONFIG` in `config.json`.
-
-## Datasets and models
-
-| Dataset | Role |
-|---------|------|
-| `cells` | Section 1 core dataset |
-| `chest` | Section 1 core dataset |
-| `lesions` | Section 1 core dataset |
-| `orgs` | Section 1 core dataset |
-
-| Model | Role |
-|-------|------|
-| `AlexNet` | Section 1 baseline |
-| `VGG16` | Section 1 baseline |
-| `ResNet18` | Section 1 baseline |

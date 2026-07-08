@@ -1,6 +1,6 @@
 # Incident Audit Log — Operation Cyber-Histology
 
-This log lists every bug we found in the recovered codebase, what caused it, how we fixed it, and the commit that has the fix. Rows are in the same order as `git log --reverse` on `pipeline_recovery` (oldest commit first). Commit hashes are full SHAs.
+This log lists every bug we found in the recovered codebase, what caused it, how we fixed it, and the commit that has the fix.
 
 ## Section 1 — Pipeline Reconstruction
 

@@ -76,6 +76,18 @@ def generate_experiments(
         for key, value in zip(keys, combination):
             experiment[key] = value
 
+        base_model = experiment_config.get("MODEL")
+        base_pretrained_path = experiment_config.get("PRETRAINED_MODEL_PATH")
+        if (
+            "MODEL" in grid
+            and experiment.get("TRANSFER_LEARNING", False)
+            and base_model
+            and base_pretrained_path
+        ):
+            experiment["PRETRAINED_MODEL_PATH"] = base_pretrained_path.replace(
+                base_model, experiment["MODEL"]
+            )
+
         config = {
             **copy.deepcopy(run_config),
             **experiment
